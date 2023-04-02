@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts-0.8/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts-0.8/access/Ownable.sol";
-import "@openzeppelin/contracts-0.8/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts-0.8/utils/Address.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/access/Ownable.sol";
+import "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import "openzeppelin-contracts/utils/Address.sol";
 import "./interfaces/ICurveGauge.sol";
 import "./interfaces/ICurvePool.sol";
 
