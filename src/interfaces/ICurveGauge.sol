@@ -2,7 +2,7 @@ pragma solidity ^0.8.17;
 
 interface ICurveGauge {
 
-    function claim_rewards() external returns (uint256);
+    function claim_rewards() external;
 
     function deposit(uint256 amount) external;
 

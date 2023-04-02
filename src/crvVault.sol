@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/access/Ownable.sol";
-import "openzeppelin-contracts/security/ReentrancyGuard.sol";
-import "openzeppelin-contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "./interfaces/ICurveGauge.sol";
 import "./interfaces/ICurvePool.sol";
 
@@ -15,7 +15,6 @@ contract crvVault is Ownable, ReentrancyGuard {
     address public steCRV;
     address public crvToken;
     address public ldoToken;
-    address public eth;
 
     address public crvStGauge;
     address public crvPool;
@@ -127,14 +126,22 @@ contract crvVault is Ownable, ReentrancyGuard {
         IERC20(ldoToken).transferFrom(msg.sender, address(this), _ldoAmount);
         uint256 ldoAmount = IERC20(ldoToken).balanceOf(address(this));
 
+        uint ethBalance = address(this).balance;
+
         // Swaps CRV & LDO into ETH
-        ICurvePool(crvPool).exchange(1, 0, crvAmount, crvAmount);
-        ICurvePool(ldoPool).exchange(1, 0, ldoAmount, ldoAmount);
+        IERC20(crvToken).approve(crvPool, crvAmount);
+        IERC20(ldoToken).approve(ldoPool, ldoAmount);
+
+        uint256 outputCrv = ICurvePool(crvPool).get_dy(1, 0, crvAmount);
+        uint256 outputLdo = ICurvePool(ldoPool).get_dy(1, 0, ldoAmount);
+        
+        ICurvePool(crvPool).exchange(1, 0, crvAmount, outputCrv, true);
+        ICurvePool(ldoPool).exchange(1, 0, ldoAmount, outputLdo, true);
 
         // Adds Liquidity to the eth/stEth Pool
-        uint256 ethBalance = address(this).balance;
-        uint256[2] memory amounts = [ethBalance, 0];
-        uint256 receivedLP = ICurvePool(stEthPool).add_liquidity(amounts, 0);
+        uint256 receivedEth = address(this).balance - ethBalance;
+        uint256[2] memory amounts = [receivedEth, 0];
+        uint256 receivedLP = ICurvePool(stEthPool).add_liquidity{value : receivedEth}(amounts, 0);
 
         // Stakes received LP Tokens into the Gauge Contract
         userStakedBalances[msg.sender] += receivedLP;
@@ -156,6 +163,10 @@ contract crvVault is Ownable, ReentrancyGuard {
         ICurveGauge(crvStGauge).withdraw(totLp);
         IERC20(steCRV).transfer(msg.sender, totLp);
 
+        uint256 vaultLdoFunds = IERC20(ldoToken).balanceOf(address(this));
+        uint256 rewardsRatiod = vaultLdoFunds * ratio;
+        IERC20(ldoToken).transfer(msg.sender, rewardsRatiod);
+
         userStakedBalances[msg.sender] -= withdrawableStakedLP;
         vaultLpFunds -= withdrawableStakedLP;
         vaultCompoundedLp -= withdrawableCompoundLP;
@@ -171,10 +182,12 @@ contract crvVault is Ownable, ReentrancyGuard {
      */
     function reInvestRewards() external onlyOwner returns (bool) {
         uint256 ldoAmount = _getLdoRewards();
-        ICurvePool(ldoPool).exchange(1, 0, ldoAmount, ldoAmount);
+        IERC20(ldoToken).approve(ldoPool, ldoAmount);
+        uint256 output = ICurvePool(ldoPool).get_dy(1, 0, ldoAmount);
+        ICurvePool(ldoPool).exchange(1, 0, ldoAmount, output, true);
         uint256 ethBalance = address(this).balance;
         uint256[2] memory amounts = [ethBalance, 0];
-        uint256 receivedLP = ICurvePool(stEthPool).add_liquidity(amounts, 0);
+        uint256 receivedLP = ICurvePool(stEthPool).add_liquidity{value: ethBalance}(amounts, 0);
 
         IERC20(steCRV).approve(crvStGauge, receivedLP);
         ICurveGauge(crvStGauge).deposit(receivedLP);
@@ -187,7 +200,10 @@ contract crvVault is Ownable, ReentrancyGuard {
      * @notice Helper for receibing LDO Staking rewards
      */
     function _getLdoRewards() internal returns (uint256) {
-        uint256 receivedLdo = ICurveGauge(crvStGauge).claim_rewards();
+        uint256 beforeCalimLdo = IERC20(ldoToken).balanceOf(address(this));
+        ICurveGauge(crvStGauge).claim_rewards();
+        uint256 afterClaimLdo = IERC20(ldoToken).balanceOf(address(this));
+        uint256 receivedLdo = afterClaimLdo - beforeCalimLdo;
         vaultLdoRewardFunds += receivedLdo;
 
         return receivedLdo;
