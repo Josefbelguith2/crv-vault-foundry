@@ -8,13 +8,11 @@ import "../src/crvVault.sol";
 
 contract vaultTests is Test {
     crvVault public vault;
-        uint256 mainnetFork;
-
+    uint256 mainnetFork;
 
     IERC20 steCRV = IERC20(0x06325440D014e39736583c165C2963BA99fAf14E);
     IERC20 crvToken = IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 ldoToken = IERC20(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
-    IERC20 stEthToken = IERC20(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
 
     ICurveGauge crvStGauge = ICurveGauge(0x182B723a58739a9c974cFDB385ceaDb237453c28);
     ICurvePool crvPool = ICurvePool(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511);
@@ -27,7 +25,7 @@ contract vaultTests is Test {
 
     function setUp() public {
         mainnetFork = vm.createFork('https://dry-empty-isle.discover.quiknode.pro/a7a3ca9a22540fc7b61b5e0842c36b9012602a95/');
-                vm.selectFork(mainnetFork);
+        vm.selectFork(mainnetFork);
         vault = new crvVault(
             0x06325440D014e39736583c165C2963BA99fAf14E,
             0xD533a949740bb3306d119CC777fa900bA034cd52,
@@ -40,12 +38,13 @@ contract vaultTests is Test {
         
     }
 
-    /*function testStake() public {
+    function testStake() public {
         setUp();
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
         vm.rollFork(16_800_000);
-        assertEq(block.number, 16_800_000);  
+        assertEq(block.number, 16_800_000); 
+
         uint256 amount = 100e18;
         emit log_named_uint("Impersonated Address LP Token Balance before staking:", steCRV.balanceOf(impersonatedAddress));
         vm.prank(impersonatedAddress);
@@ -62,24 +61,27 @@ contract vaultTests is Test {
         vm.rollFork(16_800_000);
         assertEq(block.number, 16_800_000);  
         uint256 amount = 100e18;
-        emit log_named_uint("Impersonated Address LP Token Balance before staking:", steCRV.balanceOf(impersonatedAddress));
-        
+
         vm.prank(impersonatedAddress);
         steCRV.approve(address(vault), amount);
 
+        emit log_named_uint("Impersonated Address LP Token Balance before staking:", steCRV.balanceOf(impersonatedAddress));
+        emit log_named_uint("Impersonated Address Balance before staking:", ldoToken.balanceOf(impersonatedAddress));
         emit log_named_uint("Vault LDO Balance before staking:", ldoToken.balanceOf(address(vault)));
 
+        // Stake Function Call
         vm.prank(impersonatedAddress);
         vault.stakeLp(amount);
         emit log_named_uint("Impersonated Address LP Token Balance after staking:", steCRV.balanceOf(impersonatedAddress));
-               
+        
+        // Unstake Function call
         vm.rollFork(16_850_400);
         assertEq(block.number, 16_850_400);      
         vm.prank(impersonatedAddress);
         vault.unstakeLp();
         emit log_named_uint("Impersonated Address LDO Balance after withdraw:", ldoToken.balanceOf(impersonatedAddress));
         emit log_named_uint("Impersonated Address LP Token Balance after withdraw:", steCRV.balanceOf(impersonatedAddress));
-        emit log_named_uint("Vault Address LP Balance after withdraw:", stEthToken.balanceOf(address(vault)));
+        emit log_named_uint("Vault Address LP Balance after withdraw:", steCRV.balanceOf(address(vault)));
     }
 
     function testCompundInvestment() public {
@@ -89,6 +91,7 @@ contract vaultTests is Test {
         vm.rollFork(16_800_000);
         assertEq(block.number, 16_800_000);  
         uint256 amount = 100e18;
+
         emit log_named_uint("Impersonated Address LP Token Balance before staking:", steCRV.balanceOf(impersonatedAddress));
         
         vm.prank(impersonatedAddress);
@@ -100,11 +103,12 @@ contract vaultTests is Test {
         vault.stakeLp(amount);
         emit log_named_uint("Impersonated Address LP Token Balance after staking:", steCRV.balanceOf(impersonatedAddress));
                
+        emit log_named_uint("Vault Address Compounded LP Token Balance before reInvesting Rewards:", vault.vaultCompoundedLp());
         vm.rollFork(16_850_400);
         assertEq(block.number, 16_850_400);
         vault.reInvestRewards();
-        emit log_named_uint("Vault Address LP Token Balance after reInvesting Rewards:", vault.vaultCompoundedLp());
-    }*/
+        emit log_named_uint("Vault Address Compounded LP Token Balance after reInvesting Rewards:", vault.vaultCompoundedLp());
+    }
 
     function testStakeThenUnstakeAfterCompound() public {
         setUp();
@@ -127,10 +131,12 @@ contract vaultTests is Test {
 
         vm.prank(impersonatedAddress);
         vault.unstakeLp();
-        emit log_named_uint("Impersonated Address LP Token Balance after Unstaking:", steCRV.balanceOf(impersonatedAddress));
+        emit log_named_uint("Impersonated Address LDO Balance after withdraw:", ldoToken.balanceOf(impersonatedAddress));
+        emit log_named_uint("Impersonated Address LP Token Balance after withdraw:", steCRV.balanceOf(impersonatedAddress));
+        emit log_named_uint("Vault Address LP Balance after withdraw:", steCRV.balanceOf(address(vault)));
     }
 
-    /*function testFarmCrvLdo() public {
+    function testFarmCrvLdo() public {
         setUp();
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
@@ -147,7 +153,7 @@ contract vaultTests is Test {
         ldoToken.approve(address(vault), amount);
         vm.prank(ldoOwnerAddress);
         vault.farmCrvLdoRewards(amount, amount);
-    }*/
+    }
 
     function testUnstakeAfterFarmingClvLdo() public {
         setUp();
@@ -174,6 +180,28 @@ contract vaultTests is Test {
         vm.prank(ldoOwnerAddress);
         vault.unstakeLp();
         emit log_named_uint("Impersonated Address LP Token Balance after staking:", steCRV.balanceOf(ldoOwnerAddress));
+    }
+
+    function testEmergencyWithdraw() public {
+        setUp();
+        vm.selectFork(mainnetFork);
+        assertEq(vm.activeFork(), mainnetFork);
+        vm.rollFork(16_800_000);
+        assertEq(block.number, 16_800_000);  
+        uint256 amount = 100e18;
+
+        vm.prank(impersonatedAddress);
+        steCRV.approve(address(vault), amount);
+
+        vm.prank(impersonatedAddress);
+        vault.stakeLp(amount);
+               
+        vm.rollFork(16_850_400);
+        assertEq(block.number, 16_850_400);
+        vault.reInvestRewards();
+
+        vault.emergencyWithdraw();
+        emit log_named_uint("Owner Address LP Token Balance after emergency withdrawal:", steCRV.balanceOf(vault.owner()));
     }
 
 }

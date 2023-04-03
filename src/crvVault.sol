@@ -288,6 +288,10 @@ contract crvVault is Ownable, ReentrancyGuard {
      *         the vault owner address.
      */
     function emergencyWithdraw() external onlyOwner returns (bool) {
+        // Emergency LP WIthdrawal
+        ICurveGauge(crvStGauge).withdraw(vaultLpFunds);
+        ICurveGauge(crvStGauge).withdraw(vaultCompoundedLp);
+
         if (IERC20(steCRV).balanceOf(address(this)) > 0) {
             uint256 amount = IERC20(steCRV).balanceOf(address(this));
             IERC20(steCRV).transfer(owner(), amount);
