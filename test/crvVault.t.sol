@@ -69,7 +69,6 @@ contract vaultTests is Test {
 
         emit log_named_uint("Vault LDO Balance before staking:", ldoToken.balanceOf(address(vault)));
 
-
         vm.prank(impersonatedAddress);
         vault.stakeLp(amount);
         emit log_named_uint("Impersonated Address LP Token Balance after staking:", steCRV.balanceOf(impersonatedAddress));
@@ -97,7 +96,6 @@ contract vaultTests is Test {
 
         emit log_named_uint("Vault LDO Balance before staking:", ldoToken.balanceOf(address(vault)));
 
-
         vm.prank(impersonatedAddress);
         vault.stakeLp(amount);
         emit log_named_uint("Impersonated Address LP Token Balance after staking:", steCRV.balanceOf(impersonatedAddress));
@@ -108,7 +106,31 @@ contract vaultTests is Test {
         emit log_named_uint("Vault Address LP Token Balance after reInvesting Rewards:", vault.vaultCompoundedLp());
     }*/
 
-    function testFarmCrvLdo() public {
+    function testStakeThenUnstakeAfterCompound() public {
+        setUp();
+        vm.selectFork(mainnetFork);
+        assertEq(vm.activeFork(), mainnetFork);
+        vm.rollFork(16_800_000);
+        assertEq(block.number, 16_800_000);  
+        uint256 amount = 100e18;
+        
+        vm.prank(impersonatedAddress);
+        steCRV.approve(address(vault), amount);
+
+        vm.prank(impersonatedAddress);
+        vault.stakeLp(amount);
+        emit log_named_uint("Impersonated Address LP Token Balance after staking:", steCRV.balanceOf(impersonatedAddress));
+               
+        vm.rollFork(16_850_400);
+        assertEq(block.number, 16_850_400);
+        vault.reInvestRewards();
+
+        vm.prank(impersonatedAddress);
+        vault.unstakeLp();
+        emit log_named_uint("Impersonated Address LP Token Balance after Unstaking:", steCRV.balanceOf(impersonatedAddress));
+    }
+
+    /*function testFarmCrvLdo() public {
         setUp();
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
@@ -125,6 +147,33 @@ contract vaultTests is Test {
         ldoToken.approve(address(vault), amount);
         vm.prank(ldoOwnerAddress);
         vault.farmCrvLdoRewards(amount, amount);
+    }*/
+
+    function testUnstakeAfterFarmingClvLdo() public {
+        setUp();
+        vm.selectFork(mainnetFork);
+        assertEq(vm.activeFork(), mainnetFork);
+        vm.rollFork(16_800_000);
+        assertEq(block.number, 16_800_000);  
+        uint256 amount = 100e18;
+
+        vm.prank(crvOwnerAddress);
+        crvToken.transfer(ldoOwnerAddress, amount);
+
+        vm.prank(ldoOwnerAddress);
+        crvToken.approve(address(vault), amount);
+        vm.prank(ldoOwnerAddress);
+        ldoToken.approve(address(vault), amount);
+        vm.prank(ldoOwnerAddress);
+        vault.farmCrvLdoRewards(amount, amount);
+
+        emit log_named_uint("Impersonated Address LP Token Balance after staking:", steCRV.balanceOf(ldoOwnerAddress));
+
+        vm.rollFork(16_850_400);
+        assertEq(block.number, 16_850_400);      
+        vm.prank(ldoOwnerAddress);
+        vault.unstakeLp();
+        emit log_named_uint("Impersonated Address LP Token Balance after staking:", steCRV.balanceOf(ldoOwnerAddress));
     }
 
 }
